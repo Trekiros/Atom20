@@ -22,15 +22,15 @@ async function contentScript(scriptName) {
     try {
         if ('https://app.roll20.net/editor/' === window.location.href) {
             console.log("Fallout20 - Running Roll20 scripts...")
-            injectScript('src/inject-scripts/roll20/main.js')
-            contentScript('src/content-scripts/roll20/main.js')
+            injectScript('src/roll20/inject-script.js')
+            contentScript('src/roll20/content-script.js')
         }
     
         else if ((window.location.href || "").startsWith("https://docs.google.com/spreadsheets/d/")) {
             console.log("Fallout20 - Running Google Sheets scripts...")
             injectScript('https://apis.google.com/js/api.js')
-            injectScript('src/inject-scripts/sheets/main.js')
-            contentScript('src/content-scripts/sheets/main.js')
+            injectScript('src/sheets/inject-script.js')
+            contentScript('src/sheets/content-script.js')
         }
     
         else {
