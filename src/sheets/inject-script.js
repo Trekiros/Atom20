@@ -1,1 +1,2 @@
-console.log("TEST VALENTIN - sheets loaded")
+// TODO
+console.log('Fallout20 - Sheets script injected')

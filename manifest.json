@@ -5,12 +5,13 @@
     "permissions": [
         "activeTab",
 		"tabs",
-		"storage"
+		"storage",
+        "identity"
     ],
+
     "host_permissions": [
 		"*://app.roll20.net/editor/",
-        "*://docs.google.com/spreadsheets/d/*",
-        "https://apis.google.com/js/api.js"
+        "*://docs.google.com/spreadsheets/d/*"
     ],
 
     "action": {
@@ -25,7 +26,6 @@
         }
     },
 
-    
     "content_scripts": [
         {
             "matches": ["<all_urls>"],
@@ -37,10 +37,17 @@
 
     "web_accessible_resources": [
         {
-            "resources": ["src/*", "https://apis.google.com/js/api.js"],
+            "resources": ["src/*"],
             "matches": ["<all_urls>"]
         }
     ],
+
+    "oauth2": {
+        "client_id": "642932630026-mt1ksqfrlgulc7hjlu8trci7ee8o65dj.apps.googleusercontent.com",
+        "scopes": [
+            "https://www.googleapis.com/auth/spreadsheets.readonly"
+        ]
+    },
 
     "manifest_version": 3
   }

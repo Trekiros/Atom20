@@ -5,15 +5,15 @@ function updateAttribute(characterName, attributeName, current, max) {
     if (character) {
         const attribute = character.attribs.find((a) => a.attributes.name === attributeName)
         if (attribute) {
-            hpElem.set("current", String(current))
-            hpElem.set("max", String(max))
+            hpElem.set('current', String(current))
+            hpElem.set('max', String(max))
             hpElem.save()
             character.updateTokensByName(attributeName, hpElem.id)
         } else {
-            console.log(`Fallout20 - could not update attribute "${attributeName}", because the attribute could not be found in the character sheet`)
+            console.log(`Fallout20 - could not update attribute '${attributeName}', because the attribute could not be found in the character sheet`)
         }
     } else {
-        console.log(`Fallout20 - could not update attribute, because character "${characterName}" could not be found`)
+        console.log(`Fallout20 - could not update attribute, because character '${characterName}' could not be found`)
     }
 
     console.log('Fallout20 - attribute updated')
