@@ -1,17 +1,18 @@
 // Injects scripts into the page - they have access to global window objects
-function injectScript(scriptName, callbackOptional) {
+async function injectScript(scriptName) {
     console.log(`Fallout20 - injecting '${scriptName}'...`)
     const s = document.createElement('script')
     s.src = chrome.runtime.getURL(scriptName)
-    s.onload = () => {
-        console.log(`Fallout20 - '${scriptName}' injected`)
-        s.remove()
-
-        if (callbackOptional) {
-            callbackOptional()
+    await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject('Fallout20 - Timed out while injecting script'), 2000)
+        s.onload = () => {
+            console.log(`Fallout20 - '${scriptName}' injected`)
+            s.remove()
+            clearTimeout(timeout)
+            resolve()
         }
-    }
-    (document.head || document.documentElement).appendChild(s)
+        (document.head || document.documentElement).appendChild(s)
+    })
 }
 
 // Executes content scripts (they have access to the chrome APIs)
@@ -21,20 +22,18 @@ async function contentScript(scriptName) {
     console.log(`Fallout20 - running '${scriptName}' content script...`)
 }
 
-(() => {
+(async () => {
     try {
         if ('https://app.roll20.net/editor/' === window.location.href) {
             console.log('Fallout20 - Running Roll20 scripts...')
-            injectScript('src/roll20/inject-script.js')
-            contentScript('src/roll20/content-script.js')
+            await injectScript('src/roll20/inject-script.js')
+            await contentScript('src/roll20/content-script.js')
         }
     
         else if ((window.location.href || '').startsWith('https://docs.google.com/spreadsheets/d/')) {
             console.log('Fallout20 - Running Google Sheets scripts...')
-            injectScript('src/sheets/api.js', () => {
-                injectScript('src/sheets/inject-script.js')
-                contentScript('src/sheets/content-script.js')
-            })
+            await contentScript('src/sheets/api.js')
+            await contentScript('src/sheets/content-script.js')
         }
     
         else {
