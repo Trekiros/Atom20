@@ -29,7 +29,7 @@ async function authenticatedRequest(method, url, body, retry = true) {
         await new Promise((resolve) => chrome.identity.removeCachedAuthToken({ 'token': token }, resolve))
         return authenticatedRequest(method, url, body, false)
     } else if (result.status !== 200) {
-        console.log('Fallout20 - non-200 result (probably a spreadsheet without a Fallout20 configuration)', result.status)
+        console.log('Atom20 - non-200 result (probably a spreadsheet without a Atom20 configuration)', result.status)
         return undefined
     }
 

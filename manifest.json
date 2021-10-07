@@ -1,7 +1,7 @@
 {
-    "name": "Fallout20",
+    "name": "Atom20",
     "version": "1.0",
-    "description": "Adds buttons to your Fallout character sheet so you can roll attacks and link features in roll20!",
+    "description": "Add buttons to run your Roll20 character's macros and sync its attributes on Google Sheets. Works with virtually any TTRPG system!",
     "permissions": [
         "activeTab",
 		"tabs",

@@ -10,24 +10,24 @@ function updateAttribute(characterName, attributeName, current, max) {
             attribute.save()
             character.updateTokensByName(attributeName, attribute.id)
         } else {
-            console.log(`Fallout20 - could not update attribute '${attributeName}', because the attribute could not be found in the character sheet`)
+            console.log(`Atom20 - could not update attribute '${attributeName}', because the attribute could not be found in the character sheet`)
         }
     } else {
-        console.log(`Fallout20 - could not update attribute, because character '${characterName}' could not be found`)
+        console.log(`Atom20 - could not update attribute, because character '${characterName}' could not be found`)
     }
 
-    console.log('Fallout20 - attribute updated')
+    console.log('Atom20 - attribute updated')
 }
 
 window.addEventListener('message', function(event) {
     try {
-        if (event.data?.type === 'fallout20_attribute') {
+        if (event.data?.type === 'Atom20_attribute') {
             const { characterName, attributeName, current, max } = JSON.parse(event.data.text)
             updateAttribute(characterName, attributeName, current, max)
         }
     } catch (error) {
         // Wrapping the error in a filterable string (roll20 has a lot of logs) without losing its stack trace
-        let e = new Error(`Fallout20 - Error in injected script: "${error.message}"`)
+        let e = new Error(`Atom20 - Error in injected script: "${error.message}"`)
         e.original_error = error
         e.stack = e.stack.split('\n').slice(0,2).join('\n') + '\n' +
                     error.stack

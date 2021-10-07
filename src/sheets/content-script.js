@@ -25,7 +25,7 @@ function main() {
     document.body.addEventListener('click', clickEvent => {
         if (clickEvent.path.find(elem => (elem.id === "docs-editor"))) {
             chrome.runtime.sendMessage({
-                type: 'fallout20-clickEvent',
+                type: 'Atom20-clickEvent',
                 spreadsheetId: getSpreasheetId(),
                 currentSheetName: getCurrentSheetName(),
                 currentCellLocation: getCurrentCellLocation(),
@@ -37,7 +37,7 @@ function main() {
     document.addEventListener('keypress', keypressEvent => {
         if (keypressEvent.key === 'Enter') {
             chrome.runtime.sendMessage({
-                type: 'fallout20-keypressEvent',
+                type: 'Atom20-keypressEvent',
                 spreadsheetId: getSpreasheetId(),
                 currentSheetName: getCurrentSheetName(),
                 currentCellLocation: getCurrentCellLocation(),

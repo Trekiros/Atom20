@@ -2,7 +2,7 @@ import { getSheet } from "./tools.js"
 
 // Returns the user-defined parameters for this extension
 async function getConfiguration(spreadsheetId) {
-    const result = await getSheet(spreadsheetId, 'Fallout20', 'A1:G')
+    const result = await getSheet(spreadsheetId, 'Atom20', 'A1:G')
     
     if (result && result.values && result.values[4]) {
         const sheetName = result.values[0][5]
@@ -80,7 +80,7 @@ export default async function main() {
         if (conf && (conf.sheetName === currentSheetName)) {
             const location = currentCellLocation.split(':')[0]
 
-            if (type === 'fallout20-clickEvent') {
+            if (type === 'Atom20-clickEvent') {
                 const macro = await getMacro(conf, location)
                 if (macro) {
                     await sendMessage('macro', {
@@ -88,7 +88,7 @@ export default async function main() {
                         message: macro.text,
                     })
                 }
-            } else if (type === 'fallout20-keypressEvent') {
+            } else if (type === 'Atom20-keypressEvent') {
                 const attribute = await getAttribute(conf, location)
                 if (attribute) {
                     const newValue = await getAttributeValue(spreadsheetId, currentSheetName, attribute)
@@ -101,7 +101,7 @@ export default async function main() {
                     })
                 }
             } else {
-                console.log('Fallout20 - Unknown message:', message)
+                console.log('Atom20 - Unknown message:', message)
             }
         }
     })
