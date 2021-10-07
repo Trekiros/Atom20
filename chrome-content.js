@@ -32,7 +32,6 @@ async function contentScript(scriptName) {
     
         else if ((window.location.href || '').startsWith('https://docs.google.com/spreadsheets/d/')) {
             console.log('Fallout20 - Running Google Sheets scripts...')
-            await contentScript('src/sheets/api.js')
             await contentScript('src/sheets/content-script.js')
         }
     
@@ -40,7 +39,12 @@ async function contentScript(scriptName) {
             console.log('Fallout20 - Nothing to run here.')
             // Do nothing
         }
-    } catch (e) {
-        console.error('Fallout20 Error', e)
+    } catch (error) {
+        // Wrapping the error in a filterable string (roll20 has a lot of logs) without losing its stack trace
+        let e = new Error(`Fallout20 - Error: "${error.message}"`)
+        e.original_error = error
+        e.stack = e.stack.split('\n').slice(0,2).join('\n') + '\n' +
+                    error.stack
+        throw e
     }
 })()

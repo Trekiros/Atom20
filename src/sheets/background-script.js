@@ -1,69 +1,69 @@
-// Performs an OAuth2 authentication of the user, so the rest of the code can query Google Sheets
-async function auth() {
-    console.log('Fallout20 - TEST 1', chrome.runtime.getURL('./'))
-
-    return new Promise((resolve, reject) => {
-        chrome.identity.getAuthToken({ 'interactive': true }, function(token) {
-            console.log('Fallout20 - TEST 2')
-            if (token === undefined) {
-                console.log('Fallout20 - Error authenticating with Google Drive')
-                reject('Fallout20 - no oauth2 token')
-            } else {
-                console.log('Fallout20 - TEST 3')
-                gapi.load('client', function() {
-                    console.log('Fallout20 - TEST 4')
-                    gapi.client.setToken({access_token: token})
-                    gapi.client.load('drive', 'v3', function() {
-                        console.log('Fallout20 - TEST 5')
-                        gapi.client.load('sheets', 'v4', function() {
-                            console.log('Fallout20 - TEST 6')
-                            resolve()
-                        })
-                    })
-                })
-            }
-        })
-    })
-}
+import { getSheet } from "./tools.js"
 
 // Returns the user-defined parameters for this extension
-async function getConfiguration() {
-    // TODO: gapi query sheets, find sheet named 'Fallout20'
-    const sheet = undefined
-    if (sheet) {
-        return {
-            sheetName: 'todo',
-            characterName: 'todo',
-            attributes: [
-                { name: 'todo', current: 'todo', max: 'todo' },
-            ],
-            macros: [
-                { location: 'todo', text: 'todo' },
-            ],
-        }
-    } else {
-        return undefined
-    }
-}
+async function getConfiguration(spreadsheetId) {
+    const result = await getSheet(spreadsheetId, 'Fallout20', 'A1:G')
+    
+    if (result && result.values && result.values[4]) {
+        const sheetName = result.values[0][5]
+        const characterName = result.values[1][5]
 
-// Returns the coordinates of the current selected cell, @return { sheetName: string, coordinates: string }
-async function getLocation() {
-    // TODO - use gapi to get current sheet and current cell
-    return { sheetName: 'Character Sheet', coordinates: 'G2' }
+        const attributes = []
+        const macros = []
+        for (let i = 4 ; i < result.values.length ; i++) {
+            const row = result.values[i]
+
+            if(row[0] && (row[1] || row[2])) {
+                attributes.push({
+                    name: row[0],
+                    current: row[1],
+                    max: row[2],
+                })
+            }
+
+            if (row[5] && row[6]) {
+                macros.push({
+                    location: row[5],
+                    text: row[6],
+                })
+            }
+        }
+
+        return { sheetName, characterName, attributes, macros }
+    }
 }
 
 // Retrieves the macro associated with a given location, if it exists. Returns undefined otherwise.
 async function getMacro(conf, location) {
-    if (conf.sheetName === location.sheetName) {
-        return conf.macros.find(macro => (macro.location === location.coordinates))
-    }
+    return conf.macros.find(macro => (macro.location === location))
 }
 
 // Retrieves the attribute associated with a given location, if it exists. Returns undefined otherwise.
 async function getAttribute(conf, location) {
-    if (conf.sheetName === location.sheetName) {
-        return conf.attributes.find(attribute => (attribute.location === location.coordinates))
+    return conf.attributes.find(attribute => ((attribute.current === location) || (attribute.max === location)))
+}
+
+async function getAttributeValue(spreadsheetId, sheetName, attribute) {
+    const result = {
+        current: '',
+        max: '',
     }
+
+    if (attribute.current) {
+        const tmp = await getSheet(spreadsheetId, sheetName, attribute.current)
+        if (tmp && tmp.values && tmp.values.length) {
+            result.current = tmp.values[0][0]
+        }
+    }
+
+    if (attribute.max) {
+        const tmp = await getSheet(spreadsheetId, sheetName, attribute.max)
+        if (tmp && tmp.values && tmp.values.length) {
+            result.max = tmp.values[0][0]
+        }
+    }
+    
+    return result
 }
 
 // Sends a message which will be caught by the content-script on Roll20 (if more than one roll20 tab is open, the message is sent to all of them)
@@ -74,14 +74,13 @@ async function sendMessage(type, payload) {
 }
 
 export default async function main() {
-    await auth()
+    chrome.runtime.onMessage.addListener(async ({ type, spreadsheetId, currentSheetName, currentCellLocation, currentCellText }) => {
+        const conf = await getConfiguration(spreadsheetId)
+        
+        if (conf && (conf.sheetName === currentSheetName)) {
+            const location = currentCellLocation.split(':')[0]
 
-    chrome.runtime.onMessage.addListener(async (message) => {
-        const conf = await getConfiguration()
-        if (conf) {
-            const location = await getLocation()
-
-            if (message.type === 'fallout20-clickEvent') {
+            if (type === 'fallout20-clickEvent') {
                 const macro = await getMacro(conf, location)
                 if (macro) {
                     await sendMessage('macro', {
@@ -89,19 +88,21 @@ export default async function main() {
                         message: macro.text,
                     })
                 }
-            } else if (message.type === 'fallout20-keypressEvent') {
+            } else if (type === 'fallout20-keypressEvent') {
                 const attribute = await getAttribute(conf, location)
                 if (attribute) {
+                    const newValue = await getAttributeValue(spreadsheetId, currentSheetName, attribute)
+
                     await sendMessage('attribute', {
                         characterName: conf.characterName,
                         attributeName: attribute.name,
-                        current: attribute.current,
-                        max: attribute.max,
+                        current: newValue.current,
+                        max: newValue.max,
                     })
                 }
             } else {
-                console.log('Fallout20 - TEST - Unknown message:', message)
+                console.log('Fallout20 - Unknown message:', message)
             }
         }
-    });
+    })
 }

@@ -29,7 +29,7 @@ function sendChatMessage(characterName, message) {
 
 function updateAttribute(characterName, attributeName, current, max) {
     console.log(`Fallout20 - Updating '${attributeName}' attribute...`)
-    const data = { characterName, current, max }
+    const data = { characterName, attributeName, current, max }
 
     window.postMessage(
         { type: 'fallout20_attribute', text: JSON.stringify(data) },
@@ -40,18 +40,25 @@ function updateAttribute(characterName, attributeName, current, max) {
 export default function main() {
     chrome.runtime.onMessage.addListener(({ type, payload }) => {
         try {
+            const { characterName } = payload
+
             switch (type) {
                 case 'macro':
-                    const { characterName, message } = payload
+                    const { message } = payload
                     sendChatMessage(characterName, message)
                     break;
                 case 'attribute':
-                    const { characterName, attributeName, current, max } = payload
+                    const { attributeName, current, max } = payload
                     updateAttribute(characterName, attributeName, current, max)
                     break;
             }
-        } catch (e) {
-            console.error(e)
+        } catch (error) {
+            // Wrapping the error in a filterable string (roll20 has a lot of logs) without losing its stack trace
+            let e = new Error(`Fallout20 - Error in content script: "${error.message}"`)
+            e.original_error = error
+            e.stack = e.stack.split('\n').slice(0,2).join('\n') + '\n' +
+                        error.stack
+            throw e
         }
     })
 }
