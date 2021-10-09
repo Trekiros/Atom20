@@ -3,7 +3,6 @@
     "version": "1.0",
     "description": "Add buttons to run your Roll20 character's macros and sync its attributes on Google Sheets. Works with virtually any TTRPG system!",
     "permissions": [
-        "activeTab",
 		"tabs",
         "identity"
     ],
