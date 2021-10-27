@@ -124,7 +124,7 @@ async function getMacro(spreadsheetId, conf, sheetName, location) {
 
         let result = macro.text
         mentionedLocations.forEach(location => {
-            result = result.replaceAll('${' + location + '}', cellValues[location])
+            result = result.replaceAll('${' + location + '}', cellValues[location] || '')
         })
         return result
     } else {
