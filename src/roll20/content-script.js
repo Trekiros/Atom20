@@ -27,12 +27,11 @@ function sendChatMessage(characterName, message) {
     speakingas.value = old_as
 }
 
-function updateAttribute(characterName, attributeName, current, max) {
-    console.log(`Atom20 - Updating '${attributeName}' attribute...`)
-    const data = { characterName, attributeName, current, max }
+function updateAttributes(characterName, attributeMap) {
+    const data = { characterName, attributeMap }
 
     window.postMessage(
-        { type: 'Atom20_attribute', text: JSON.stringify(data) },
+        { type: 'Atom20_attributes', text: JSON.stringify(data) },
         '*' /* targetOrigin: any */
     )
 }
@@ -47,9 +46,9 @@ export default function main() {
                     const { message } = payload
                     sendChatMessage(characterName, message)
                     break;
-                case 'attribute':
-                    const { attributeName, current, max } = payload
-                    updateAttribute(characterName, attributeName, current, max)
+                case 'attributes':
+                    const { attributeMap } = payload
+                    updateAttributes(characterName, attributeMap)
                     break;
             }
         } catch (error) {

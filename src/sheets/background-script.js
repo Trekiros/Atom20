@@ -29,7 +29,8 @@ async function getConfiguration(spreadsheetId) {
             }
         }
 
-        return { sheetName, characterName, attributes, macros }
+        const configuration = { sheetName, characterName, attributes, macros }
+        return configuration
     }
 }
 
@@ -39,31 +40,91 @@ async function getMacro(conf, location) {
 }
 
 // Retrieves the attribute associated with a given location, if it exists. Returns undefined otherwise.
-async function getAttribute(conf, location) {
-    return conf.attributes.find(attribute => ((attribute.current === location) || (attribute.max === location)))
-}
+async function getAttributes(spreadsheetId, conf, currentSheetName) {
+    const toCoordinates = (location) => {
+        const lettersPat = /[A-Z]+/g
+        const numbersPat = /[0-9]+/g
 
-async function getAttributeValue(spreadsheetId, sheetName, attribute) {
-    const result = {
-        current: '',
-        max: '',
+        console.log(location, location.match(lettersPat), location.match(numbersPat))
+    
+        const col = location.match(lettersPat)[0]
+        const row = location.match(numbersPat)[0]
+    
+        return { col, row }
     }
-
-    if (attribute.current) {
-        const tmp = await getSheet(spreadsheetId, sheetName, attribute.current)
-        if (tmp && tmp.values && tmp.values.length) {
-            result.current = tmp.values[0][0]
-        }
+    const toCol = (num) => {
+        let result = ''
+        do {
+            const c = String.fromCharCode((num % 26) + 'A'.charCodeAt(0))
+            result = c + result
+            num -= num%26 + 1
+            num = num/26
+        } while (num > 0)
+        return result
     }
-
-    if (attribute.max) {
-        const tmp = await getSheet(spreadsheetId, sheetName, attribute.max)
-        if (tmp && tmp.values && tmp.values.length) {
-            result.max = tmp.values[0][0]
+    const toNum = (col) => {
+        let result = 0
+        for (let i = 0 ; i < col.length ; i++) {
+            result += (col.charCodeAt(i) - 'A'.charCodeAt(0)) * Math.pow(26, col.length - i -1)
         }
+        return result
     }
     
-    return result
+    // 1. Determine the range of data to fetch
+    let minRow = Infinity
+    let maxRow = 0
+    let minCol = Infinity
+    let maxCol = 0
+
+    conf.attributes.forEach(attribute => {
+        const { current, max } = attribute
+        const locations = [current, max]
+        locations.forEach(location => {
+            if (!location) return
+
+            const { col, row } = toCoordinates(location)
+            const colNum = toNum(col)
+
+            if (minRow > row) minRow = row
+            if (maxRow < row) maxRow = row
+            if (minCol > colNum) minCol = colNum
+            if (maxCol < colNum) maxCol = colNum
+        })
+    })
+
+    const rangeStart = toCol(minCol) + minRow
+    const rangeEnd = toCol(maxCol) + maxRow
+    const range = (rangeStart === rangeEnd) ? rangeStart : `${rangeStart}:${rangeEnd}`
+
+    // 2. Get results & build a map of values
+    const results = await getSheet(spreadsheetId, currentSheetName, range)
+    if (!results || !results.values || !results.values[maxRow - minRow]) {
+        // TODO
+        throw new Exception('TODO VALENTIN')
+    }
+
+    const attributeMap = {}
+    function getAttributeValue(location) {
+        if (!location) return ''
+
+        const { col, row } = toCoordinates(location)
+        const colNum = toNum(col)
+
+        return results.values[row - minRow][colNum - minCol]
+    }
+    conf.attributes.forEach(attribute => {
+        attributeMap[attribute.name] = {
+            current: getAttributeValue(attribute.current),
+            max: getAttributeValue(attribute.max),
+        }
+    })
+
+    return attributeMap
+}
+
+async function isRoll20Open() {
+    const tabs = await chrome.tabs.query({})
+    return tabs.find(tab => (tab.url === 'https://app.roll20.net/editor/'))
 }
 
 // Sends a message which will be caught by the content-script on Roll20 (if more than one roll20 tab is open, the message is sent to all of them)
@@ -73,31 +134,51 @@ async function sendMessage(type, payload) {
         .forEach(async tab => chrome.tabs.sendMessage(tab.id, { type, payload }))
 }
 
+function matchesSheetName(confSheetName, currentSheetName) {
+    if (currentSheetName === 'Atom20') {
+        return false
+    }
+
+    if (confSheetName?.startsWith('includes:')) {
+        const included = (confSheetName.split(':')[1]).split(',')
+        return included.includes(currentSheetName)
+    }
+
+    if (confSheetName?.startsWith('excludes:')) {
+        const excluded = (confSheetName.split(':')[1]).split(',')
+        return !excluded.includes(currentSheetName)
+    }
+    
+    return (confSheetName === currentSheetName)
+}
+
 export default async function main() {
     chrome.runtime.onMessage.addListener(async ({ type, spreadsheetId, currentSheetName, currentCellLocation, currentCellText }) => {
-        const conf = await getConfiguration(spreadsheetId)
+        if (!isRoll20Open()) {
+            return
+        }
         
-        if (conf && (conf.sheetName === currentSheetName)) {
+        const conf = await getConfiguration(spreadsheetId)
+
+        if (conf && matchesSheetName(conf.sheetName, currentSheetName)) {
+
             const location = currentCellLocation.split(':')[0]
 
             if (type === 'Atom20-clickEvent') {
                 const macro = await getMacro(conf, location)
                 if (macro) {
                     await sendMessage('macro', {
-                        characterName: conf.characterName,
+                        characterName: (conf.characterName !== '*') ? conf.characterName : currentSheetName,
                         message: macro.text,
                     })
                 }
-            } else if (type === 'Atom20-keypressEvent') {
-                const attribute = await getAttribute(conf, location)
-                if (attribute) {
-                    const newValue = await getAttributeValue(spreadsheetId, currentSheetName, attribute)
+            } else if (type === 'Atom20-cellUpdateEvent') {
+                const attributeMap = await getAttributes(spreadsheetId, conf, currentSheetName)
 
-                    await sendMessage('attribute', {
+                if (attributeMap) {
+                    await sendMessage('attributes', {
                         characterName: conf.characterName,
-                        attributeName: attribute.name,
-                        current: newValue.current,
-                        max: newValue.max,
+                        attributeMap,
                     })
                 }
             } else {

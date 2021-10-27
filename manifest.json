@@ -8,8 +8,8 @@
     ],
 
     "host_permissions": [
-		"*://app.roll20.net/editor/",
-        "*://docs.google.com/spreadsheets/d/*"
+		"https://app.roll20.net/editor/",
+        "https://docs.google.com/spreadsheets/d/*"
     ],
 
     "action": {
@@ -26,9 +26,10 @@
 
     "content_scripts": [
         {
-            "matches": ["<all_urls>"],
-            "js": [
-                "chrome-content.js"
+            "js": ["chrome-content.js"],
+            "matches": [
+                "https://docs.google.com/spreadsheets/d/*",
+                "https://app.roll20.net/editor/"
             ]
         }
     ],
@@ -39,14 +40,10 @@
     },
 
     "web_accessible_resources": [
-        {
-            "resources": ["src/*"],
-            "matches": ["<all_urls>"]
-        }
+        { "resources": ["src/*"], "matches": ["<all_urls>"] }
     ],
 
-
-    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwH4uAld5M7ir8hsGlWpIvauopnzl72JJM72GHDlca/aCAWhI2r5FvTI/VeNxv4C/qgDLyGrSkTkqex6LHjmVY3C9PNYCvvxtqc99/mzMxfjrWG+a4s3xfAg9AWyLo8lxO3cBsu0IVF1u1PLP4JcbOQIIEqBiP55GV7b5hXQ2y6S1McUVEvmrZPG2a8pKm0d9KovjDN2XjrE7HcKcE5MQX1G2xmU2PKdnLFUsQs6g0C/I7TJS+0duWHgKExRAzJwLoiqLr63RlXg1KZcKk9Y/ZtFptMOX95L2KDCngQ4cNcNA8fiaATe32YxQ3gRouK0o7bN+YnrBcrTKHA5J0iN3rwIDAQAB",
+    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAif2PIq3ip14mXIwGUchBmY5TaUDrZp6X+c3zLOpK+GWQAPsl5eOAjNsJX6tbT2Y03COPvqUvM/hZcA7tbipEg16lSJ2YchAZ9yuIj+acKs+IynE2RWLZRu5xmCN0SqhI0aQrnYJItQU9r+KzdXp8VPm+BRjdfAXRFAMSg4B9yog0bNafQOzo8Pi+Sv2Y0Qtt9rL5cBfZKGpZHONT+SYKMfwTIGf/rInm1WYezlkZa2L1cmUUYNjXq5z0nQtjeEM0Ic+XBAGqsKw9uXTWrigramgb3uepDBIPsKnrnGMPLtgbFAe0kcpB8F3vx3tyKlg9j6A/Xa0TL4W6cugXf3z+ZwIDAQAB",
     "oauth2": {
         "client_id": "642932630026-mt1ksqfrlgulc7hjlu8trci7ee8o65dj.apps.googleusercontent.com",
         "scopes": [

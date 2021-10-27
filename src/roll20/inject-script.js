@@ -1,16 +1,20 @@
-function updateAttribute(characterName, attributeName, current, max) {
+function updateAttributes(characterName, attributeMap) {
     const name = characterName.toLowerCase().trim()
 
     const character = Campaign.characters.find((c) => c.attributes.name.toLowerCase().trim() === name)
     if (character) {
-        const attribute = character.attribs.find((a) => a.attributes.name === attributeName)
-        if (attribute) {
-            attribute.set('current', String(current))
-            attribute.set('max', String(max))
-            attribute.save()
-            character.updateTokensByName(attributeName, attribute.id)
-        } else {
-            console.log(`Atom20 - could not update attribute '${attributeName}', because the attribute could not be found in the character sheet`)
+        for (let attributeName in attributeMap) {
+            const { current, max } = attributeMap[attributeName]
+
+            const attribute = character.attribs.find((a) => a.attributes.name === attributeName)
+            if (attribute) {
+                attribute.set('current', String(current))
+                attribute.set('max', String(max))
+                attribute.save()
+                character.updateTokensByName(attributeName, attribute.id)
+            } else {
+                console.log(`Atom20 - could not update attribute '${attributeName}', because the attribute could not be found in the character sheet`)
+            }
         }
     } else {
         console.log(`Atom20 - could not update attribute, because character '${characterName}' could not be found`)
@@ -21,9 +25,9 @@ function updateAttribute(characterName, attributeName, current, max) {
 
 window.addEventListener('message', function(event) {
     try {
-        if (event.data?.type === 'Atom20_attribute') {
-            const { characterName, attributeName, current, max } = JSON.parse(event.data.text)
-            updateAttribute(characterName, attributeName, current, max)
+        if (event.data?.type === 'Atom20_attributes') {
+            const { characterName, attributeMap } = JSON.parse(event.data.text)
+            updateAttributes(characterName, attributeMap)
         }
     } catch (error) {
         // Wrapping the error in a filterable string (roll20 has a lot of logs) without losing its stack trace

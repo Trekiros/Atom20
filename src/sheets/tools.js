@@ -5,11 +5,11 @@ async function getToken() {
         } else {
             resolve(token)
         }
-    }))  
+    }))
 }
 
 // Body is optional, retry should not be passed as an argument (it's used internally to retry once if the token has expired)
-async function authenticatedRequest(method, url, body, retry = true) {
+async function authenticatedQuery(method, url, body, retry = true) {
     const token = await getToken()
   
     const param = {
@@ -18,7 +18,7 @@ async function authenticatedRequest(method, url, body, retry = true) {
             'Authorization': 'Bearer ' + token,
         },
     }
-    if(body) {
+    if (body) {
         // Body must not be set unless it's used
         param.body = body
     }
@@ -29,7 +29,7 @@ async function authenticatedRequest(method, url, body, retry = true) {
         await new Promise((resolve) => chrome.identity.removeCachedAuthToken({ 'token': token }, resolve))
         return authenticatedRequest(method, url, body, false)
     } else if (result.status !== 200) {
-        console.log('Atom20 - non-200 result (probably a spreadsheet without a Atom20 configuration)', result.status)
+        console.log('Atom20 - non-200 result', result.status)
         return undefined
     }
 
@@ -37,5 +37,5 @@ async function authenticatedRequest(method, url, body, retry = true) {
 }
 
 export async function getSheet(spreadsheetId, sheetName, range) {
-    return authenticatedRequest('GET', `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetName}'!${range}`)
+    return authenticatedQuery('GET', `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetName}'!${range}`)
 }
