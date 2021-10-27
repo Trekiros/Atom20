@@ -34,88 +34,122 @@ async function getConfiguration(spreadsheetId) {
     }
 }
 
-// Retrieves the macro associated with a given location, if it exists. Returns undefined otherwise.
-async function getMacro(conf, location) {
-    return conf.macros.find(macro => (macro.location === location))
+// Transforms a coordinate such as 'AB48' to an object such as { col: 'AB', row: '48' }
+const toCoordinates = (location) => {
+    const lettersPat = /[A-Z]+/g
+    const numbersPat = /[0-9]+/g
+
+    const col = location.match(lettersPat)[0]
+    const row = location.match(numbersPat)[0]
+
+    return { col, row }
 }
 
-// Retrieves the attribute associated with a given location, if it exists. Returns undefined otherwise.
-async function getAttributes(spreadsheetId, conf, currentSheetName) {
-    const toCoordinates = (location) => {
-        const lettersPat = /[A-Z]+/g
-        const numbersPat = /[0-9]+/g
+// Transforms a number such as 100 to the corresponding column index such as 'CU'
+const toCol = (num) => {
+    let result = ''
+    do {
+        const c = String.fromCharCode((num % 26) + 'A'.charCodeAt(0))
+        result = c + result
+        num -= num%26 + 1
+        num = num/26
+    } while (num > 0)
+    return result
+}
 
-        console.log(location, location.match(lettersPat), location.match(numbersPat))
-    
-        const col = location.match(lettersPat)[0]
-        const row = location.match(numbersPat)[0]
-    
-        return { col, row }
+// Transforms a column index such as 'CU' to a number such as 100
+const toNum = (col) => {
+    let result = 0
+    for (let i = 0 ; i < col.length ; i++) {
+        result += (col.charCodeAt(i) - 'A'.charCodeAt(0)) * Math.pow(26, col.length - i -1)
     }
-    const toCol = (num) => {
-        let result = ''
-        do {
-            const c = String.fromCharCode((num % 26) + 'A'.charCodeAt(0))
-            result = c + result
-            num -= num%26 + 1
-            num = num/26
-        } while (num > 0)
-        return result
+    return result
+}
+
+// Calculates the smallest range to retrieve in order to get all locations listed here
+async function getCellValues(spreadsheetId, sheetName, locations) {
+    if (!locations.length) {
+        return {}
     }
-    const toNum = (col) => {
-        let result = 0
-        for (let i = 0 ; i < col.length ; i++) {
-            result += (col.charCodeAt(i) - 'A'.charCodeAt(0)) * Math.pow(26, col.length - i -1)
-        }
-        return result
-    }
-    
-    // 1. Determine the range of data to fetch
+
+    // 1. Find range size
     let minRow = Infinity
     let maxRow = 0
     let minCol = Infinity
     let maxCol = 0
 
-    conf.attributes.forEach(attribute => {
-        const { current, max } = attribute
-        const locations = [current, max]
-        locations.forEach(location => {
-            if (!location) return
-
-            const { col, row } = toCoordinates(location)
-            const colNum = toNum(col)
-
-            if (minRow > row) minRow = row
-            if (maxRow < row) maxRow = row
-            if (minCol > colNum) minCol = colNum
-            if (maxCol < colNum) maxCol = colNum
-        })
-    })
-
-    const rangeStart = toCol(minCol) + minRow
-    const rangeEnd = toCol(maxCol) + maxRow
-    const range = (rangeStart === rangeEnd) ? rangeStart : `${rangeStart}:${rangeEnd}`
-
-    // 2. Get results & build a map of values
-    const results = await getSheet(spreadsheetId, currentSheetName, range)
-    if (!results || !results.values || !results.values[maxRow - minRow]) {
-        // TODO
-        throw new Exception('TODO VALENTIN')
-    }
-
-    const attributeMap = {}
-    function getAttributeValue(location) {
-        if (!location) return ''
+    locations.forEach(location => {
+        if (!location) return
 
         const { col, row } = toCoordinates(location)
         const colNum = toNum(col)
 
-        return results.values[row - minRow][colNum - minCol]
+        if (minRow > row) minRow = row
+        if (maxRow < row) maxRow = row
+        if (minCol > colNum) minCol = colNum
+        if (maxCol < colNum) maxCol = colNum
+    })
+    
+    const rangeStart = toCol(minCol) + minRow
+    const rangeEnd = toCol(maxCol) + maxRow
+    const range = (rangeStart === rangeEnd) ? rangeStart : `${rangeStart}:${rangeEnd}`
+
+    // 2. Fetch range
+    const queryResults = await getSheet(spreadsheetId, sheetName, range)
+    if (!queryResults || !queryResults.values || !queryResults.values[maxRow - minRow]) {
+        return {}
     }
+
+    // 3. Record the results in a map
+    const cellValues = {}
+    locations.forEach(location => {
+        const { col, row } = toCoordinates(location)
+        const colNum = toNum(col)
+
+        cellValues[location] = queryResults.values[row - minRow][colNum - minCol]
+    })
+    return cellValues
+}
+
+// Retrieves the macro associated with a given location, if it exists. Returns undefined otherwise.
+async function getMacro(spreadsheetId, conf, sheetName, location) {
+    const macro = conf.macros.find(macro => (macro.location === location))
+    if (!macro) return
+
+    const tags = macro.text.match(/\${[0-9A-Z]+}/g)
+    
+    if (tags && tags.length) {
+        const mentionedLocations = tags.map(result => result.substring(2, result.length-1))
+        const cellValues = await getCellValues(spreadsheetId, sheetName, mentionedLocations)
+
+        let result = macro.text
+        mentionedLocations.forEach(location => {
+            result = result.replaceAll('${' + location + '}', cellValues[location])
+        })
+        return result
+    } else {
+        return macro.text
+    }
+}
+
+// Retrieves the attribute associated with a given location, if it exists. Returns undefined otherwise.
+async function getAttributes(spreadsheetId, conf, currentSheetName) {    
+    const cellValues = await getCellValues(
+        spreadsheetId,
+        currentSheetName,
+        conf.attributes.flatMap(attribute => {
+            const arr = []
+            if (attribute.current) arr.push(attribute.current)
+            if (attribute.max) arr.push(attribute.max)
+            return arr
+        })
+    )
+
+    const attributeMap = {}
     conf.attributes.forEach(attribute => {
         attributeMap[attribute.name] = {
-            current: getAttributeValue(attribute.current),
-            max: getAttributeValue(attribute.max),
+            current: (cellValues[attribute.current] === undefined) ? '' : cellValues[attribute.current],
+            max: (cellValues[attribute.max] === undefined) ? '' : cellValues[attribute.max],
         }
     })
 
@@ -165,11 +199,11 @@ export default async function main() {
             const location = currentCellLocation.split(':')[0]
 
             if (type === 'Atom20-clickEvent') {
-                const macro = await getMacro(conf, location)
+                const macro = await getMacro(spreadsheetId, conf, currentSheetName, location)
                 if (macro) {
                     await sendMessage('macro', {
                         characterName: (conf.characterName !== '*') ? conf.characterName : currentSheetName,
-                        message: macro.text,
+                        message: macro,
                     })
                 }
             } else if (type === 'Atom20-cellUpdateEvent') {
