@@ -51,7 +51,7 @@ const toCol = (num) => {
     do {
         const c = String.fromCharCode((num % 26) + 'A'.charCodeAt(0))
         result = c + result
-        num -= num%26 + 1
+        num -= (num%26) + 1
         num = num/26
     } while (num > 0)
     return result
@@ -59,9 +59,9 @@ const toCol = (num) => {
 
 // Transforms a column index such as 'CU' to a number such as 100
 const toNum = (col) => {
-    let result = 0
+    let result = -1
     for (let i = 0 ; i < col.length ; i++) {
-        result += (col.charCodeAt(i) - 'A'.charCodeAt(0)) * Math.pow(26, col.length - i -1)
+        result += (col.charCodeAt(i) - 'A'.charCodeAt(0) + 1) * Math.pow(26, col.length - i -1)
     }
     return result
 }
@@ -211,7 +211,7 @@ export default async function main() {
 
                 if (attributeMap) {
                     await sendMessage('attributes', {
-                        characterName: conf.characterName,
+                        characterName: (conf.characterName !== '*') ? conf.characterName : currentSheetName,
                         attributeMap,
                     })
                 }
