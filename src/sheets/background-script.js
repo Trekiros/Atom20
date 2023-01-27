@@ -1,8 +1,8 @@
-import { getSheet } from "./tools.js"
+import { getSheet, setBatch } from "./tools.js"
 
 // Returns the user-defined parameters for this extension
 async function getConfiguration(spreadsheetId) {
-    const result = await getSheet(spreadsheetId, 'Atom20', 'A1:G')
+    const result = await getSheet(spreadsheetId, 'Atom20', 'A1:K')
     
     if (result && result.values && result.values[4]) {
         const sheetName = result.values[0][5]
@@ -10,6 +10,7 @@ async function getConfiguration(spreadsheetId) {
 
         const attributes = []
         const macros = []
+        const actions = []
         for (let i = 4 ; i < result.values.length ; i++) {
             const row = result.values[i]
 
@@ -27,22 +28,36 @@ async function getConfiguration(spreadsheetId) {
                     text: row[6],
                 })
             }
+
+            if (row[8] && row[9] && row[10]) {
+                actions.push({
+                    trigger: row[8],
+                    destination: row[9],
+                    value: row[10],
+                })
+            }
         }
 
-        const configuration = { sheetName, characterName, attributes, macros }
+        const configuration = { sheetName, characterName, attributes, macros, actions }
         return configuration
     }
 }
 
+function isCoordinates(location) {
+    return location && (/[A-Z]+[0-9]+/g).test(location)
+}
+
 // Transforms a coordinate such as 'AB48' to an object such as { col: 'AB', row: '48' }
-const toCoordinates = (location) => {
+function toCoordinates(location) {
+    if (!isCoordinates(location)) return undefined
+
     const lettersPat = /[A-Z]+/g
     const numbersPat = /[0-9]+/g
 
     const col = location.match(lettersPat)[0]
     const row = location.match(numbersPat)[0]
 
-    return { col, row }
+    return undefined
 }
 
 // Transforms a number such as 100 to the corresponding column index such as 'CU'
@@ -79,8 +94,7 @@ async function getCellValues(spreadsheetId, sheetName, locations) {
     let maxCol = 0
 
     locations.forEach(location => {
-        if (!location) return
-
+        console.log('TEST VALENTIN', location)
         const { col, row } = toCoordinates(location)
         const colNum = toNum(col)
 
@@ -112,24 +126,40 @@ async function getCellValues(spreadsheetId, sheetName, locations) {
 }
 
 // Retrieves the macro associated with a given location, if it exists. Returns undefined otherwise.
-async function getMacro(spreadsheetId, conf, sheetName, location) {
-    const macro = conf.macros.find(macro => (macro.location === location))
-    if (!macro) return
+async function getMacros(spreadsheetId, conf, sheetName, location) {
+    const macros = conf.macros.filter(macro => (macro.location === location))
+    if (!macros || !macros.length) return
 
-    const tags = macro.text.match(/\${[0-9A-Z]+}/g)
-    
-    if (tags && tags.length) {
-        const mentionedLocations = tags.map(result => result.substring(2, result.length-1))
-        const cellValues = await getCellValues(spreadsheetId, sheetName, mentionedLocations)
+    const lookupLocations = macros.flatMap(macro => (macro.text.match(/\${[0-9A-Z]+}/g) || []))
+    console.log('TEST VALENTIN', macros, lookupLocations)
+    const values = await getCellValues(spreadsheetId, sheetName, lookupLocations)
 
+    return macros.map(macro => {
+        const locationTags = macro.text.match(/\${[0-9A-Z]+}/g) || []
         let result = macro.text
-        mentionedLocations.forEach(location => {
+        locationTags.forEach(location => {
             result = result.replaceAll('${' + location + '}', cellValues[location] || '')
         })
         return result
-    } else {
-        return macro.text
-    }
+    })
+}
+
+// Returns the list of updated cells, so that if they are attributes, the attributes can also be updated
+async function executeActions(spreadsheetId, conf, sheetname, location) {
+    const actions = conf.actions.filter(action => (
+        (action.trigger === location)
+        && isCoordinates(action.destination)
+        && (action.value !== undefined)
+    ))
+    if (!actions || !actions.length) return
+
+
+    await setBatch(spreadsheetId, sheetname, actions.map(action => ({
+        location: action.destination,
+        value: action.value,
+    })))
+
+    return actions.map(action => action.destination)
 }
 
 // Retrieves the attribute associated with a given location, if it exists. Returns undefined otherwise.
@@ -197,16 +227,25 @@ export default async function main() {
         if (conf && matchesSheetName(conf.sheetName, currentSheetName)) {
 
             const location = currentCellLocation.split(':')[0]
+            let needToUpdateAttributes = false
 
             if (type === 'Atom20-clickEvent') {
-                const macro = await getMacro(spreadsheetId, conf, currentSheetName, location)
-                if (macro) {
-                    await sendMessage('macro', {
+                const macros = await getMacros(spreadsheetId, conf, currentSheetName, location)
+                if (macros && macros.length) {
+                    await Promise.all(macros.map(macro => sendMessage('macro', {
                         characterName: (conf.characterName !== '*') ? conf.characterName : currentSheetName,
                         message: macro,
-                    })
+                    }))) 
                 }
-            } else if (type === 'Atom20-cellUpdateEvent') {
+
+                const actions = await executeActions(spreadsheetId, conf, currentSheetName, location)
+                if (actions && actions.length) {
+                    const updatedAttributes = conf.attributes.filter(attribute => actions.includes(attribute.current) || actions.includes(attribute.max))
+                    if (updatedAttributes.length) needToUpdateAttributes = true
+                }
+            }
+            
+            if ((type === 'Atom20-cellUpdateEvent') || needToUpdateAttributes) {
                 const attributeMap = await getAttributes(spreadsheetId, conf, currentSheetName)
 
                 if (attributeMap) {
@@ -215,8 +254,6 @@ export default async function main() {
                         attributeMap,
                     })
                 }
-            } else {
-                console.log('Atom20 - Unknown message:', message)
             }
         }
     })
