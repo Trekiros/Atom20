@@ -1,20 +1,10 @@
 chrome.runtime.onMessage.addListener(tryCatch(({ type, payload }) => {
     console.log('Atom20 - Received message', { type, payload })
     switch (type) {
-        case 'hp': return;
-        case 'message': sendChatMessage(payload)
+        case 'hp': return updateHP(payload);
+        case 'message': return sendChatMessage(payload)
     }
 }))
-
-function tryCatch(callback) {
-    return (...args) => {
-        try {
-            callback(...args)
-        } catch (e) {
-            console.error('Atom20 Error - ', e)
-        }
-    }
-}
 
 function sendChatMessage(message) {
     const attack = (!message.attack ? '' : ` {{attack=[[${message.attack.toHit}]] | [[${message.attack.toHit}]]}} {{damage=[[${message.attack.damage}]]${message.attack.damageType}}}`)
@@ -23,7 +13,7 @@ function sendChatMessage(message) {
         + `&{template:default}`
         + ` {{name=**${message.characterName} - ${message.title}**}}`
         + (!message.attack ? '' 
-            : ` {{attack=[[${message.attack.toHit}]] | [[${message.attack.toHit}]]}} {{damage=[[${message.attack.damage}]]${message.attack.damageType}}}`
+            : ` {{attack=[[1d20+${message.attack.toHit}]] | [[1d20+${message.attack.toHit}]]}} {{damage=[[${message.attack.damage}]]${message.attack.damageType}}}`
         )
         + (!message.description ? ''
             : ` {{=${message.description}}}`
@@ -57,11 +47,22 @@ function sendChatMessage(message) {
     speakingas.value = old_as
 }
 
-function updateAttributes(characterName, attributeMap) {
-    const data = { characterName, attributeMap }
+function updateHP(hp) {
+    window.postMessage({ type: 'Atom20_hp', payload: hp }, '*')
+}
 
-    window.postMessage(
-        { type: 'Atom20_attributes', text: JSON.stringify(data) },
-        '*' /* targetOrigin: any */
-    )
+
+
+
+
+
+
+function tryCatch(callback) {
+    return (...args) => {
+        try {
+            callback(...args)
+        } catch (e) {
+            console.error('Atom20 Error - ', e)
+        }
+    }
 }

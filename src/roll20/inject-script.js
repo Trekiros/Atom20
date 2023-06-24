@@ -1,8 +1,10 @@
-function updateAttributes(characterName, attributeMap) {
+async function updateAttributes(characterName, attributeMap) {
     const name = characterName.toLowerCase().trim()
 
     const character = Campaign.characters.find((c) => c.attributes.name.toLowerCase().trim() === name)
     if (character) {
+        await loadCharacterAttributes(character)
+
         for (let attributeName in attributeMap) {
             const { current, max } = attributeMap[attributeName]
 
@@ -23,18 +25,23 @@ function updateAttributes(characterName, attributeMap) {
     console.log('Atom20 - attribute updated')
 }
 
-window.addEventListener('message', function(event) {
-    try {
-        if (event.data?.type === 'Atom20_attributes') {
-            const { characterName, attributeMap } = JSON.parse(event.data.text)
-            updateAttributes(characterName, attributeMap)
-        }
-    } catch (error) {
-        // Wrapping the error in a filterable string (roll20 has a lot of logs) without losing its stack trace
-        let e = new Error(`Atom20 - Error in injected script: "${error.message}"`)
-        e.original_error = error
-        e.stack = e.stack.split('\n').slice(0,2).join('\n') + '\n' +
-                    error.stack
-        throw e
+async function loadCharacterAttributes(character) {
+    if (!character.attribs.backboneFirebase) {
+        character.attribs.backboneFirebase = new BackboneFirebase(character.attribs);
+
+        return character.attribs.backboneFirebase.reference.once('value');
     }
+}
+
+window.addEventListener('message', function(event) {
+    const { type, payload } = event.data
+    if (type !== 'Atom20_hp') return
+
+    const { characterName, maxHP, currentHP, tempHP } = payload
+    const attrMap = {
+        hp: { current: currentHP, max: maxHP },
+        thp: { current: tempHP, max: tempHP },
+    }
+
+    updateAttributes(characterName, attrMap)
 })
