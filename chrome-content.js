@@ -30,20 +30,19 @@ async function contentScript(scriptName) {
             await contentScript('src/roll20/content-script.js')
         }
     
-        else if (
-            (window.location.href || '').startsWith('https://atompunk.vercel.app/')
-            || (window.location.href || '').startsWith('http://localhost:3000/')
-        ) {
-            console.log('Atom20 - Running Atompunk scripts...')
-            await injectScript('src/atompunk/inject-script.js')
-            await contentScript('src/atompunk/content-script.js')
+        else if ((window.location.href || '').startsWith('https://docs.google.com/spreadsheets/d/')) {
+            console.log('Atom20 - Running Google Sheets scripts...')
+            await contentScript('src/sheets/content-script.js')
         }
     
         else {
-            console.log('Atom20 - Nothing to run here.')
-            // Do nothing
+            console.log('Atom20 - Running general script.')
+            await injectScript('src/other/inject-script.js')
+            await contentScript('src/other/content-script.js')
         }
-    } catch (error) {
+    } 
+    
+    catch (error) {
         // Wrapping the error in a filterable string (roll20 has a lot of logs) without losing its stack trace
         let e = new Error(`Atom20 - Error: "${error.message}"`)
         e.original_error = error

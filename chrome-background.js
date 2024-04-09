@@ -1,49 +1,43 @@
-chrome.runtime.onMessage.addListener(tryCatch(async ({ message: { type, payload, from }}) => {
-    const destinations = from === 'Atompunk' ? ['https://app.roll20.net/editor/']
-        : ['https://atompunk.vercel.app/character//', 'http://localhost:3000/']
-    console.log('Atom20 - rerouting message from ', from, 'to', destinations)
-    
-    const tabs = await chrome.tabs.query({})
-    const destinationTabs = tabs.filter(tab => destinations.find(destination => tab.url.startsWith(destination)))
+import main from './src/sheets/background-script.js'
 
-    await sendAllTabs(destinationTabs, { type, payload })
-}))
-
-async function updateTabs() {
-    const tabs = await chrome.tabs.query({})
-    const atompunkTabs = tabs.filter(tab => tab.url.startsWith('https://atompunk.vercel.app/character/') || tab.url.startsWith('http://localhost:3000/'))
-    const roll20Tabs = tabs.filter(tab => tab.url.startsWith('https://app.roll20.net/'))
-
-    if (atompunkTabs.length > 0) {
-        const useAtom20 = (roll20Tabs.length > 0)
-        console.log('Atom20 - Updating tabs: useAtom20 = ', useAtom20)
-        await sendAllTabs(atompunkTabs, { type: 'tabsUpdate', payload: { useAtom20 } })
-    }
+try {
+    main()
+} catch (e) {
+    console.error('Fallout20 - Error in background script:', e)
 }
 
-async function sendAllTabs(tabs, message) {
-    return Promise.all(tabs.map(tab => chrome.tabs.sendMessage(tab.id, message)))
-}
 
-chrome.tabs.onUpdated.addListener(updateTabs)
-chrome.tabs.onCreated.addListener(updateTabs)
-chrome.tabs.onRemoved.addListener(updateTabs)
+async function tabListener() {
+    const roll20Tabs = await chrome.tabs.query({ url: 'https://app.roll20.net/editor/' })
+    const isRoll20Open = !!roll20Tabs.length
 
+    const tabs = await chrome.tabs.query({})
 
-
-
-
-
-
-
-
-
-function tryCatch(callback) {
-    return async (...args) => {
+    for (const tab of tabs) {
         try {
-            await callback(...args)
+            await chrome.tabs.sendMessage(tab.id, {
+                type: 'atom20-heartbeat',
+                isRoll20Open,
+            })
         } catch (e) {
-            console.error('Atom20 Error - ', e)
+            // Do nothing
         }
     }
 }
+
+chrome.tabs.onUpdated.addListener(tabListener)
+chrome.tabs.onRemoved.addListener(tabListener)
+
+async function messageListener(message) {
+    const { type } = message
+
+    if ([ 'atom20-attr', 'atom20-macro' ].includes(type)) {
+        const roll20Tabs = await chrome.tabs.query({ url: 'https://app.roll20.net/editor/' })
+
+        for (const tab of roll20Tabs) {
+            await chrome.tabs.sendMessage(tab.id, message)
+        }
+    }
+}
+
+chrome.runtime.onMessage.addListener(messageListener)

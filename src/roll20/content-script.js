@@ -1,24 +1,4 @@
-chrome.runtime.onMessage.addListener(tryCatch(({ type, payload }) => {
-    console.log('Atom20 - Received message', { type, payload })
-    switch (type) {
-        case 'hp': return updateHP(payload);
-        case 'message': return sendChatMessage(payload)
-    }
-}))
-
-function sendChatMessage(message) {
-    const attack = (!message.attack ? '' : ` {{attack=[[${message.attack.toHit}]] | [[${message.attack.toHit}]]}} {{damage=[[${message.attack.damage}]]${message.attack.damageType}}}`)
-    
-    const serializedMessage = (message.gmWhisper ? '/w gm ' : '')
-        + `&{template:default}`
-        + ` {{name=**${message.characterName} - ${message.title}**}}`
-        + (!message.attack ? '' 
-            : ` {{attack=[[1d20+${message.attack.toHit}]] | [[1d20+${message.attack.toHit}]]}} {{damage=[[${message.attack.damage}]]${message.attack.damageType}}}`
-        )
-        + (!message.description ? ''
-            : ` {{=${message.description}}}`
-        )
-
+function sendChatMessage(characterName, message) {
     // Find html elements
     const chat = document.getElementById('textchat-input')
     const txt = chat.getElementsByTagName('textarea')[0]
@@ -27,8 +7,8 @@ function sendChatMessage(message) {
 
     // Assign 'speaking as' temporarily
     const old_as = speakingas.value
-    if (message.characterName) {
-        const character = message.characterName.toLowerCase().trim()
+    if (characterName) {
+        const character = characterName.toLowerCase().trim()
         for (let i = 0; i < (speakingas.children.length); i++) {
             if (speakingas.children[i].text.toLowerCase().trim() === character) {
                 speakingas.children[i].selected = true
@@ -39,7 +19,7 @@ function sendChatMessage(message) {
 
     // Send message
     const old_text = txt.value
-    txt.value = serializedMessage
+    txt.value = message
     btn.click()
 
     // Reset html elements
@@ -47,22 +27,57 @@ function sendChatMessage(message) {
     speakingas.value = old_as
 }
 
-function updateHP(hp) {
-    window.postMessage({ type: 'Atom20_hp', payload: hp }, '*')
+function updateAttributes(characterName, attributeMap) {
+    const data = { characterName, attributeMap }
+
+    window.postMessage(
+        { type: 'Atom20_attributes', text: JSON.stringify(data) },
+        '*' /* targetOrigin: any */
+    )
 }
 
+export default function main() {
+    chrome.runtime.onMessage.addListener((message) => {
+        const { type } = message
 
 
+        if (['atom20-attr','atom20-macro','atom20-heartbeat'].includes(type)) {
+            console.log('Atom20 - got message from v2 app')
+            if (type === 'atom20-macro') {
+                console.log('Atom20 - got macro message from v2 app')
+                sendChatMessage("", message.message)
+            }
 
-
-
-
-function tryCatch(callback) {
-    return (...args) => {
-        try {
-            callback(...args)
-        } catch (e) {
-            console.error('Atom20 Error - ', e)
+            else if (type === 'atom20-attr') {
+                console.log('Atom20 - got attr message from v2 app')
+                updateAttributes(message.characterName, message.attributes)
+            } else {
+                console.log('Atom20 - got message from v2 app', type)
+            }
+        } else {
+            try {
+                const { characterName } = message.payload
+    
+                switch (type) {
+                    case 'macro':
+                        sendChatMessage(characterName, message.payload.message)
+                        break;
+                    case 'attributes':
+                        updateAttributes(characterName, message.payload.attributeMap)
+                        break;
+                }
+            } catch (error) {
+                // Wrapping the error in a filterable string (roll20 has a lot of logs) without losing its stack trace
+                let e = new Error(`Atom20 - Error in content script: "${error.message}"`)
+                e.original_error = error
+                e.stack = e.stack.split('\n').slice(0,2).join('\n') + '\n' +
+                            error.stack
+                throw e
+            }
         }
-    }
+
+
+    })
 }
+
+main()

@@ -1,48 +1,37 @@
 {
-    "name": "Atom20",
-    "version": "1.1",
-    "description": "Add buttons to run your Roll20 character's macros and sync its attributes on Atompunk.",
-    "permissions": [
-		"tabs"
-    ],
-
-    "host_permissions": [
-		"https://app.roll20.net/editor/",
-        "http://localhost:3000/character/*",
-        "https://atompunk.vercel.app/character/*"
-    ],
-
-    "action": {
-        "default_icon": {
-            "16": "images/icon/icon16.png",
-            "24": "images/icon/icon24.png",
-            "32": "images/icon/icon32.png",
-            "48": "images/icon/icon48.png",
-            "64": "images/icon/icon64.png",
-            "128": "images/icon/icon128.png",
-            "256": "images/icon/icon256.png"
-        }
-    },
-
-    "content_scripts": [
-        {
-            "js": ["chrome-content.js"],
-            "matches": [
-                "https://app.roll20.net/editor/",
-                "http://localhost:3000/character/*",
-                "https://atompunk.vercel.app/character/*"
-            ]
-        }
-    ],
-    
-    "background": {
-        "service_worker": "chrome-background.js",
-        "type": "module"
-    },
-
-    "web_accessible_resources": [
-        { "resources": ["src/*"], "matches": ["<all_urls>"] }
-    ],
-
-    "manifest_version": 3
-  }
+   "action": {
+      "default_icon": {
+         "128": "images/icon/icon128.png",
+         "16": "images/icon/icon16.png",
+         "24": "images/icon/icon24.png",
+         "256": "images/icon/icon256.png",
+         "32": "images/icon/icon32.png",
+         "48": "images/icon/icon48.png",
+         "64": "images/icon/icon64.png"
+      }
+   },
+   "background": {
+      "service_worker": "chrome-background.js",
+      "type": "module"
+   },
+   "content_scripts": [ {
+      "js": [ "chrome-content.js" ],
+      "matches": [ "<all_urls>" ]
+   } ],
+   "description": "Add buttons to run your Roll20 character's macros and sync its attributes on Google Sheets. Works with virtually any TTRPG system!",
+   "host_permissions": [ "<all_urls>" ],
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAif2PIq3ip14mXIwGUchBmY5TaUDrZp6X+c3zLOpK+GWQAPsl5eOAjNsJX6tbT2Y03COPvqUvM/hZcA7tbipEg16lSJ2YchAZ9yuIj+acKs+IynE2RWLZRu5xmCN0SqhI0aQrnYJItQU9r+KzdXp8VPm+BRjdfAXRFAMSg4B9yog0bNafQOzo8Pi+Sv2Y0Qtt9rL5cBfZKGpZHONT+SYKMfwTIGf/rInm1WYezlkZa2L1cmUUYNjXq5z0nQtjeEM0Ic+XBAGqsKw9uXTWrigramgb3uepDBIPsKnrnGMPLtgbFAe0kcpB8F3vx3tyKlg9j6A/Xa0TL4W6cugXf3z+ZwIDAQAB",
+   "manifest_version": 3,
+   "name": "Atom20",
+   "oauth2": {
+      "client_id": "642932630026-mt1ksqfrlgulc7hjlu8trci7ee8o65dj.apps.googleusercontent.com",
+      "scopes": [ "https://www.googleapis.com/auth/spreadsheets.readonly" ]
+   },
+   "permissions": [ "tabs", "identity" ],
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "1.1",
+   "web_accessible_resources": [ {
+      "matches": [ "\u003Call_urls>" ],
+      "resources": [ "src/*" ]
+   } ]
+}
